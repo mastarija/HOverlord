@@ -1,0 +1,4 @@
+packages    : */*.cabal
+
+constraints : base ^>= 4.12
+            , text ^>= 1.2
