@@ -1,4 +1,5 @@
 packages    : */*.cabal
 
-constraints : base ^>= 4.12
-            , text ^>= 1.2
+constraints : base        ^>= 4.12
+            , text        ^>= 1.2
+            , bytestring  ^>= 0.10
