@@ -19,6 +19,9 @@ library
 
 executable HClient
   import            : core
+  build-depends     :
+      JuicyPixels
+    , X11
   main-is           : Main.hs
   hs-source-dirs    : cli
 
