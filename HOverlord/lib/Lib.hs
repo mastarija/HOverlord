@@ -14,9 +14,14 @@ import GHC.Generics ( Generic )
 import Foreign.Storable ( Storable (..) )
 import Foreign.Marshal.Alloc ( free )
 import Foreign.C.String ( CString, peekCString )
-import Foreign.C.Types ( CLong, CDouble )
+import Foreign.C.Types ( CLong, CDouble, CULong )
 import Foreign.Ptr ( Ptr, castPtr )
 --
+
+data BMP = BMP
+  { image :: Ptr ByteString
+  , bytes :: CULong
+  } deriving ( Eq, Show, Generic )
 
 data Test = Test
   { width   :: Double
