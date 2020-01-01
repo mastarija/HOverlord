@@ -15,7 +15,7 @@ common core
 
 library
   import            : core
-  build-depends     : text
+  build-depends     : bitmap
   c-sources         : lib/cbits/WinShot.c
   -- cxx-sources       : lib/cpp/WinShot.cpp
   hs-source-dirs    : lib

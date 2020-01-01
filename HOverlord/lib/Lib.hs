@@ -4,6 +4,9 @@
 --
 module Lib where
 --
+import Data.Bitmap.Base
+import Data.Bitmap.IO
+import Data.Bitmap.IO.File
 import Data.Int ( Int32 )
 import Data.Word ( Word8, Word16 )
 import Data.ByteString ( ByteString )
@@ -83,3 +86,8 @@ foreign import ccall "TakeScreenShot" c_takeScreenShot :: IO ( Ptr CBitmap )
 
 takeScreenShot :: IO CBitmap
 takeScreenShot = c_takeScreenShot >>= peek
+
+test :: IO ()
+test = do
+  img <- readRawData "../test.bin" ( ( 1366, 768 ), 3, PctWord8 ) :: IO ( IOBitmap Word8 )
+  writeBitmap "test.bmp" img
