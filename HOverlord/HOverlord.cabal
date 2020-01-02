@@ -19,9 +19,12 @@ library
 
 executable HClient
   import            : core
-  build-depends     :
-      JuicyPixels
-    , X11
+  if os(linux)
+    build-depends:
+        JuicyPixels
+      , X11
+  if os(windows)
+    c-sources       : lib/cbits/WinShot.c
   main-is           : Main.hs
   hs-source-dirs    : cli
 
