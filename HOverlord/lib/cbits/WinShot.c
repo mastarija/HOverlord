@@ -4,46 +4,68 @@
 
 typedef struct { void* image; unsigned long bytes; } BMP;
 typedef struct { long  vsx; long vsy; long sw; long sh; } SCR;
+typedef struct { int cnt; SCR screens[1]; } SCRHelper;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-BOOL MyInfoEnumProc( HMONITOR Arg1, HDC Arg2, LPRECT Arg3, LPARAM Arg4 ) {
-  MONITORINFO i;
-
-  int* cunt = (int*)Arg4;
-
-  (*cunt)++;
-
-  i.cbSize = sizeof( MONITORINFO );
-
-  GetMonitorInfoW( Arg1, &i );
-
-  printf( "cbSize: %d \n"           , i.cbSize );
-  printf("\n");
-
-  printf( "rcMonitor.left: %d \n"   , i.rcMonitor.left );
-  printf( "rcMonitor.top: %d \n"    , i.rcMonitor.top );
-  printf( "rcMonitor.right: %d \n"  , i.rcMonitor.right );
-  printf( "rcMonitor.bottom: %d \n" , i.rcMonitor.bottom );
-  printf("\n");
-
-  printf( "rcWork.left: %d \n"      , i.rcWork.left );
-  printf( "rcWork.top: %d \n"       , i.rcWork.top );
-  printf( "rcWork.right: %d \n"     , i.rcWork.right );
-  printf( "rcWork.bottom: %d \n"    , i.rcWork.bottom );
-  printf("\n");
-
-  printf( "dwFlags: %d \n"          , i.dwFlags );
-  printf("\n");
-  printf("\n");
+BOOL ScreenCounter( HMONITOR hMonitor, HDC hDC, LPRECT pRect, LPARAM pCnt ) {
+  int* pCounter = (int*) pCnt;
+  (*pCounter)++;
+  return TRUE;
 }
 
-void EnumScreens() {
-  int cnt = 0;
+BOOL ScreenInformer( HMONITOR hMonitor, HDC hDC, LPRECT pRect, LPARAM pSCRHelper ) {
+  printf( "hello" );
 
-  EnumDisplayMonitors( NULL, NULL, MyInfoEnumProc, (LPARAM) &cnt );
+  SCRHelper*  helper  = (SCRHelper*) pSCRHelper;
+  int         cnt     = helper->cnt;
 
-  printf( "\ncnt: %d\n", cnt );
+  printf( "ScreenInformer: cnt = %d", cnt );
+
+  MONITORINFO info;
+              info.cbSize = sizeof( MONITORINFO );
+
+  GetMonitorInfoA( hMonitor, &info );
+
+  helper->screens[cnt].vsx = info.rcMonitor.left;
+  helper->screens[cnt].vsy = info.rcMonitor.top;
+  helper->screens[cnt].sw  = abs( info.rcMonitor.left - info.rcMonitor.right );
+  helper->screens[cnt].sh  = abs( info.rcMonitor.top  - info.rcMonitor.bottom );
+
+  helper->cnt++;
+
+  return TRUE;
+}
+
+SCRHelper* EnumScreens() {
+  int         cnt     = 0;
+  SCRHelper*  helper  = NULL;
+
+  printf("enumerating\n");
+
+  // get number of monitors
+  EnumDisplayMonitors( NULL, NULL, ScreenCounter, (LPARAM) &cnt );
+
+  printf("allocating: %d\n", cnt);
+
+  // allocate enough memory to store screen info
+  helper = (SCRHelper*) malloc( sizeof( int ) + cnt * sizeof( SCR ) );
+
+
+  // return null if memory allocation fails
+  if ( helper == NULL ) return NULL;
+
+  // initialize the counter
+  helper->cnt = 0;
+
+  printf("getting info\n");
+
+  // get position and size of each monitor into helper
+  EnumDisplayMonitors( NULL, NULL, ScreenInformer, (LPARAM) helper );
+
+  printf("enum cnt: %d\n\n", helper->cnt );
+
+  return helper;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
