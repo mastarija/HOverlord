@@ -3,6 +3,48 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 typedef struct { void* image; unsigned long bytes; } BMP;
+typedef struct { long  vsx; long vsy; long sw; long sh; } SCR;
+
+////////////////////////////////////////////////////////////////////////////////
+
+BOOL MyInfoEnumProc( HMONITOR Arg1, HDC Arg2, LPRECT Arg3, LPARAM Arg4 ) {
+  MONITORINFO i;
+
+  int* cunt = (int*)Arg4;
+
+  (*cunt)++;
+
+  i.cbSize = sizeof( MONITORINFO );
+
+  GetMonitorInfoW( Arg1, &i );
+
+  printf( "cbSize: %d \n"           , i.cbSize );
+  printf("\n");
+
+  printf( "rcMonitor.left: %d \n"   , i.rcMonitor.left );
+  printf( "rcMonitor.top: %d \n"    , i.rcMonitor.top );
+  printf( "rcMonitor.right: %d \n"  , i.rcMonitor.right );
+  printf( "rcMonitor.bottom: %d \n" , i.rcMonitor.bottom );
+  printf("\n");
+
+  printf( "rcWork.left: %d \n"      , i.rcWork.left );
+  printf( "rcWork.top: %d \n"       , i.rcWork.top );
+  printf( "rcWork.right: %d \n"     , i.rcWork.right );
+  printf( "rcWork.bottom: %d \n"    , i.rcWork.bottom );
+  printf("\n");
+
+  printf( "dwFlags: %d \n"          , i.dwFlags );
+  printf("\n");
+  printf("\n");
+}
+
+void EnumScreens() {
+  int cnt = 0;
+
+  EnumDisplayMonitors( NULL, NULL, MyInfoEnumProc, (LPARAM) &cnt );
+
+  printf( "\ncnt: %d\n", cnt );
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
