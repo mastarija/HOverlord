@@ -4,7 +4,9 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = { mkDerivation, base, JuicyPixels, stdenv, text, X11 }:
+  f = { mkDerivation, base, extra, JuicyPixels, process
+      , raw-strings-qq, stdenv, text, X11
+      }:
       mkDerivation {
         pname = "HOverlord";
         version = "0.1.0.0";
@@ -12,7 +14,9 @@ let
         isLibrary = true;
         isExecutable = true;
         libraryHaskellDepends = [ base text ];
-        executableHaskellDepends = [ base JuicyPixels X11 ];
+        executableHaskellDepends = [
+          base extra JuicyPixels process raw-strings-qq X11
+        ];
         license = "unknown";
         hydraPlatforms = stdenv.lib.platforms.none;
       };

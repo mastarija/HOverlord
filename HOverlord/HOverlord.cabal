@@ -21,7 +21,10 @@ executable HClient
   import            : core
   if os(linux)
     build-depends:
-        JuicyPixels
+        extra
+      , JuicyPixels
+      , process
+      , raw-strings-qq
       , X11
   if os(windows)
     c-sources       : lib/cbits/WinShot.c
