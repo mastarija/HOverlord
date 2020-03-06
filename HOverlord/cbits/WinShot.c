@@ -1,106 +1,11 @@
 #include <stdio.h>
 #include <windows.h>
-////////////////////////////////////////////////////////////////////////////////
-
-typedef struct { void* image; unsigned long bytes; } BMP;
-typedef struct { long  vsx; long vsy; long sw; long sh; } SCR;
-typedef struct { int cnt; SCR screens[1]; } SCRHelper;
+#include "WinShot.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
-BOOL ScreenCounter( HMONITOR hMonitor, HDC hDC, LPRECT pRect, LPARAM pCnt ) {
-  int* pCounter = (int*) pCnt;
-  (*pCounter)++;
-  return TRUE;
-}
-
-BOOL ScreenInformer( HMONITOR hMonitor, HDC hDC, LPRECT pRect, LPARAM pSCRHelper ) {
-  printf( "hello" );
-
-  SCRHelper*  helper  = (SCRHelper*) pSCRHelper;
-  int         cnt     = helper->cnt;
-
-  printf( "ScreenInformer: cnt = %d", cnt );
-
-  MONITORINFO info;
-              info.cbSize = sizeof( MONITORINFO );
-
-  GetMonitorInfoA( hMonitor, &info );
-
-  helper->screens[cnt].vsx = info.rcMonitor.left;
-  helper->screens[cnt].vsy = info.rcMonitor.top;
-  helper->screens[cnt].sw  = abs( info.rcMonitor.left - info.rcMonitor.right );
-  helper->screens[cnt].sh  = abs( info.rcMonitor.top  - info.rcMonitor.bottom );
-
-  helper->cnt++;
-
-  return TRUE;
-}
-
-SCRHelper* EnumScreens() {
-  int         cnt     = 0;
-  SCRHelper*  helper  = NULL;
-
-  printf("enumerating\n");
-
-  // get number of monitors
-  EnumDisplayMonitors( NULL, NULL, ScreenCounter, (LPARAM) &cnt );
-
-  printf("allocating: %d\n", cnt);
-
-  // allocate enough memory to store screen info
-  helper = (SCRHelper*) malloc( sizeof( int ) + cnt * sizeof( SCR ) );
-
-
-  // return null if memory allocation fails
-  if ( helper == NULL ) return NULL;
-
-  // initialize the counter
-  helper->cnt = 0;
-
-  printf("getting info\n");
-
-  // get position and size of each monitor into helper
-  EnumDisplayMonitors( NULL, NULL, ScreenInformer, (LPARAM) helper );
-
-  printf("enum cnt: %d\n\n", helper->cnt );
-
-  return helper;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-DWORD ColorTableSize( BITMAPINFOHEADER* h ) {
-  DWORD result        = 0;
-
-  DWORD biClrUsed     = h->biClrUsed;
-  WORD  biBitCount    = h->biBitCount;
-  DWORD biCompression = h->biCompression;
-
-  switch ( biBitCount ) {
-    case 24:
-      result = biClrUsed;
-      break;
-    case 16:
-    case 32:
-      if ( biCompression == BI_RGB )
-        result = biClrUsed;
-      else if ( biCompression == BI_BITFIELDS )
-        result = 3;
-      break;
-    default: // for 0, 1, 2, 4, and 8
-      if ( biClrUsed == 0 )
-        result = ( 1 << biBitCount ); // 2^biBitCount
-      else
-        result = biClrUsed;
-      break;
-  }
-
-  return result;
-}
-
-BMP* ScreenShot( int x, int y, int width, int height ) {
-  BMP*              result            = NULL;
+HBitmap* ScreenShot( int x, int y, int width, int height ) {
+  HBitmap*          result            = NULL;
 
   HDC               hScreen           = GetDC( NULL );
   HDC               hScreenMemory     = CreateCompatibleDC( hScreen );
@@ -144,7 +49,7 @@ BMP* ScreenShot( int x, int y, int width, int height ) {
   if ( nColors > 0 )
     pBitmapInfo = realloc( pBitmapInfo, sBitmapInfo );
 
-  // return null if reallocation failed
+  // return null if reallocation failed for some reason
   if ( pBitmapInfo == NULL )
     goto FailExit01;
 
@@ -155,12 +60,11 @@ BMP* ScreenShot( int x, int y, int width, int height ) {
   if ( pPixelBuffer == NULL )
     goto FailExit01;
 
-  // get full BITMAPINFO structure this time
-  // return NULL if it fails
+  // get full BITMAPINFO structure this time and return NULL if it fails
   if( !GetDIBits( hScreenMemory, hBitmap, 0, pBitmapInfo->bmiHeader.biHeight, pPixelBuffer, pBitmapInfo, DIB_RGB_COLORS ) )
     goto FailExit02;
 
-  // initialize BITMAPFILEHEADER
+  // initialize the BITMAPFILEHEADER
   pBitmapFileHeader->bfType      = 0x4D42; // 0x4D B, 0x42 M : BM ( BitMap )
   pBitmapFileHeader->bfSize      = sBitmapFileHeader + sBitmapInfo + sPixelBuffer;
   pBitmapFileHeader->bfReserved1 = 0;
@@ -182,18 +86,21 @@ BMP* ScreenShot( int x, int y, int width, int height ) {
   memcpy( pBitmapBuffer + sBitmapFileHeader + sBitmapInfo , pPixelBuffer      , sPixelBuffer      );
 
   // allocate enough memory for BMP structure
-  result = malloc( sizeof( BMP ) );
+  result = malloc( sizeof( HBitmap ) );
 
   // return NULL if allocation fails
   // and clean up successfully allocated bitmap buffer ( such a shame )
   if ( result == NULL )
     goto FailExit03;
 
+  // insert data into resulting HBitmap structure
   result->image = pBitmapBuffer;
   result->bytes = sBitmapFileHeader + sBitmapInfo + sPixelBuffer;
 
+  // return result
   goto DONE;
 
+  // memory cleanup (we have to be good peoples :)
   FailExit03:
     free( pBitmapBuffer );
   DONE:
@@ -206,6 +113,99 @@ BMP* ScreenShot( int x, int y, int width, int height ) {
     ReleaseDC( NULL, hScreen );
     DeleteObject( hBitmapOld );
 
+  // return the HBitmap
   return result;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+/*
+  This might be a complete mess, or it might work perfectly, I'm not sure. It
+  was suprisingly hard to find a solid resource on the BitMap standard and ones
+  that I did find were conflicting with each other on some things. So yeah, it
+  works on my PC :)
+*/
+DWORD ColorTableSize( BITMAPINFOHEADER* h ) {
+  DWORD result        = 0;
+
+  DWORD biClrUsed     = h->biClrUsed;
+  WORD  biBitCount    = h->biBitCount;
+  DWORD biCompression = h->biCompression;
+
+  switch ( biBitCount ) {
+    case 24:
+      result = biClrUsed;
+      break;
+    case 16:
+    case 32:
+      if ( biCompression == BI_RGB )
+        result = biClrUsed;
+      else if ( biCompression == BI_BITFIELDS )
+        result = 3;
+      break;
+    default: // for 0, 1, 2, 4, and 8
+      if ( biClrUsed == 0 )
+        result = ( 1 << biBitCount ); // 2^biBitCount
+      else
+        result = biClrUsed;
+      break;
+  }
+
+  return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+HScreenList* EnumScreens() {
+  int           cnt  = 0;     // number of detected screens
+  HScreenList*  list = NULL;  // list of detected screens
+
+  // get number of detected screens so we can allocate enough memory for a list
+  EnumDisplayMonitors( NULL, NULL, ScreenCounter, (LPARAM) &cnt );
+
+  // allocate enough memory to store screen info for every detected screen
+  list = (HScreenList*) malloc( sizeof( int ) + cnt * sizeof( HScreen ) );
+
+  // return null if memory allocation fails
+  if ( list == NULL ) return NULL;
+
+  // initialize the counter for ScreenInformer
+  list->cnt = 0;
+
+  // get position and size of each monitor into list
+  EnumDisplayMonitors( NULL, NULL, ScreenInformer, (LPARAM) list );
+
+  // return the pointer containing a list of detected screens
+  return list;
+}
+
+BOOL ScreenCounter( HMONITOR hMonitor, HDC hDC, LPRECT pRect, LPARAM pCnt ) {
+  int* pCounter = (int*) pCnt;  // cast the caster pointer
+  (*pCounter)++;                // increase the counter value
+
+  // continue iterating over screens
+  return TRUE;
+}
+
+BOOL ScreenInformer( HMONITOR hMonitor, HDC hDC, LPRECT pRect, LPARAM pHScreenList ) {
+  HScreenList*  list = (HScreenList*) pHScreenList; // cast to HScreenList
+  int           cnt  = list->cnt;                   // get current index
+
+  MONITORINFO info;
+              info.cbSize = sizeof( MONITORINFO ); // needed for G...M...InfoA
+
+  // get the screen info
+  GetMonitorInfoA( hMonitor, &info );
+
+  // store relevant screen info into the list
+  list->screens[cnt].vsx = info.rcMonitor.left;
+  list->screens[cnt].vsy = info.rcMonitor.top;
+  list->screens[cnt].vsw = abs( info.rcMonitor.left - info.rcMonitor.right );
+  list->screens[cnt].vsh = abs( info.rcMonitor.top  - info.rcMonitor.bottom );
+
+  // increase the index
+  list->cnt++;
+
+  // continue iterating over screens
+  return TRUE;
+}

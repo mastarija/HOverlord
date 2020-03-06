@@ -16,10 +16,11 @@ common core
 library
   import            : core
   build-depends     : bitmap
-  c-sources         : lib/cbits/WinShot.c
-  -- cxx-sources       : lib/cpp/WinShot.cpp
+  include-dirs      : cbits
+  c-sources         : cbits/WinShot.c
   hs-source-dirs    : lib
   exposed-modules   : Lib
+                    , WinShot
 
 executable HClient
   import            : core
