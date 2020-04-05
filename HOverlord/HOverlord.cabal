@@ -1,6 +1,6 @@
 cabal-version       : 3.0
 
-name                : HOverlord
+name                : hoverlord
 version             : 0.1.0.0
 author              : Maštarija
 maintainer          : 51950685+mastarija@users.noreply.github.com
@@ -19,8 +19,9 @@ library
   include-dirs      : cbits
   c-sources         : cbits/WinShot.c
   hs-source-dirs    : lib
-  exposed-modules   : Lib
-                    , WinShot
+  exposed-modules   : HOverlord
+                    , HOverlord.WinShot
+                    , HOverlord.ScreenShot
 
 executable HClient
   import            : core

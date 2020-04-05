@@ -1,13 +1,15 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 --
-module WinShot where
+module HOverlord.WinShot where
 --
 import Foreign
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
 --
 import Data.ByteString as BS
+--
+import HOverlord.ScreenShot as SS
 --
 
 #include "WinShot.h"
@@ -20,10 +22,6 @@ foreign import ccall "EnumScreens"
 
 --
 
-newtype Bitmap = Bitmap
-  { unBitmap :: ByteString
-  } deriving ( Eq, Show )
-
 data CHBitmap = CHBitmap
   { cimage :: !( Ptr ByteString ) -- pointer to the image data
   , cbytes :: !CULong             -- number of image bytes
@@ -35,13 +33,6 @@ peekCHBitmap p = CHBitmap
   <*> (#{peek HBitmap, bytes} p)
 
 --
-
-data Screen = Screen
-  { vsx :: Int
-  , vsy :: Int
-  , vsw :: Int
-  , vsh :: Int
-  } deriving ( Eq, Show )
 
 data CHScreen = CHScreen
   { cvsx :: !CLong -- virtual screen x coordinate
@@ -78,43 +69,40 @@ peekCHScreenList p = CHScreenList
 
 --
 
+sc :: ScreenShot
+sc = ScreenShot {..}
+  where screenEnum :: IO [Screen]
+        screenEnum = do
+          p <- c_EnumScreens >>= newForeignPtr finalizerFree
+          withForeignPtr p helper
+          where helper :: Ptr CHScreenList -> IO [ Screen ]
+                helper p = do
+                  CHScreenList{..} <- peekCHScreenList p
+                  fmap screenFromCHScreen <$> peekArray (fromIntegral ccnt) cscreens
 
-enumScreens :: IO [Screen]
-enumScreens = do
-  p <- c_EnumScreens >>= newForeignPtr finalizerFree
-  withForeignPtr p helper
-  where helper :: Ptr CHScreenList -> IO [ Screen ]
-        helper p = do
-          CHScreenList{..} <- peekCHScreenList p
-          fmap screenFromCHScreen <$> peekArray (fromIntegral ccnt) cscreens
+                screenFromCHScreen :: CHScreen -> Screen
+                screenFromCHScreen CHScreen{..} = Screen
+                  (fromIntegral cvsx)
+                  (fromIntegral cvsy)
+                  (fromIntegral cvsw)
+                  (fromIntegral cvsh)
 
-        screenFromCHScreen :: CHScreen -> Screen
-        screenFromCHScreen CHScreen{..} = Screen
-          (fromIntegral cvsx)
-          (fromIntegral cvsy)
-          (fromIntegral cvsw)
-          (fromIntegral cvsh)
+        screenShot :: Screen -> IO Bitmap
+        screenShot Screen{..} = do
+          sp <- c_ScreenShot
+            (fromIntegral x)
+            (fromIntegral y)
+            (fromIntegral w)
+            (fromIntegral h) >>= newForeignPtr finalizerFree
+          withForeignPtr sp helper
+          where helper :: Ptr CHBitmap -> IO Bitmap
+                helper p = do
+                  CHBitmap{..}  <- peekCHBitmap p
+                  fpimage       <- newForeignPtr finalizerFree cimage
+                  bs <- withForeignPtr fpimage $ \ pimage -> do
+                    bitearr <- peekArray (fromIntegral cbytes) (castPtr pimage)
+                    pure $ pack bitearr
+                  pure $ Bitmap bs
 
-
-screenShot :: Screen -> IO Bitmap
-screenShot Screen{..} = do
-  sp <- c_ScreenShot
-    (fromIntegral vsx)
-    (fromIntegral vsy)
-    (fromIntegral vsw)
-    (fromIntegral vsh) >>= newForeignPtr finalizerFree
-  withForeignPtr sp helper
-  where helper :: Ptr CHBitmap -> IO Bitmap
-        helper p = do
-          CHBitmap{..}  <- peekCHBitmap p
-          fpimage       <- newForeignPtr finalizerFree cimage
-          bs <- withForeignPtr fpimage $ \ pimage -> do
-            bitearr <- peekArray (fromIntegral cbytes) (castPtr pimage)
-            pure $ pack bitearr
-          pure $ Bitmap bs
-
-saveShot :: IO ()
-saveShot = do
-  [scr] <- enumScreens
-  bmp <- screenShot scr
-  BS.writeFile "test.bmp" (unBitmap bmp)
+        screenSave :: FilePath -> Bitmap -> IO ()
+        screenSave fp bmp = BS.writeFile fp (unBitmap bmp)

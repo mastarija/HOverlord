@@ -1,6 +1,6 @@
 packages    : */*.cabal
 
-constraints : base        ^>= 4.12
+constraints : base
             , text        ^>= 1.2
             , bitmap      ^>= 0.0.2
             , bytestring  ^>= 0.10
